@@ -5,6 +5,7 @@ import (
 	"net/http"
     "os"
     "time"
+    "strings"
 
      "github.com/gin-gonic/gin"
      "github.com/golang-jwt/jwt/v5"
@@ -53,20 +54,55 @@ func DebugContract(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+    
+    if (!CheckMonthlyPayment(requestBody.WalletAddress, requestBody.Network)) {
+        c.JSON(http.StatusPaymentRequired, gin.H{})
+    }
+    
+    contractText := requestBody.Contract
+    tempFileName := requestBody.WalletAddress + "-" + time.Now().Unix() + ".sol"
     //debug contract
-    c.JSON(http.StatusOK, gin.H{})
+    err := WriteStringToFile(tempFileName, contractText)
+    if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+    }
+    cmd := 
+    `
+    ./smartbugs -t all -f ` + tempFileName + `
+./reparse results
+./results2csv -p results > results.csv
+    `
+
+    output, err := ExecuteCommand(cmd)
+    if err != nil {
+	    c.AbortWithError(http.StatusInternalServerError, err)
+    }
+    
+    resp := DebugContractRes{Bugs: strings.Split(output, ",")}
+    c.JSON(http.StatusOK, resp)
 }
 
 func GenerateContract(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{})
-}
+    log.Println("POST /generate-contract has been called")
+    requestBody := GenerateContractBody{}
+	if err := c.BindJSON(&requestBody); err != nil {
+		log.Println("JSON was missing some required values")
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+    
+    if (!CheckMonthlyPayment(requestBody.WalletAddress, requestBody.Network)) {
+        c.JSON(http.StatusPaymentRequired, gin.H{})
+    }
+    
+    prompt= requestBody.Prompt
+    cmd := "python run_model.py " + prompt
 
-func Validate(c *gin.Context){
-    user,_ := c.Get("user")
-
-    // user.(models.User).Email    -->   to access specific data
-
-    c.JSON(http.StatusOK, gin.H{
-        "message": user,
-    })
+    output, err := ExecuteCommand(cmd)
+    if err != nil {
+	    c.AbortWithError(http.StatusInternalServerError, err)
+    }
+    
+    resp := GenerateContractRes{Contract: output}
+    c.JSON(http.StatusOK, resp)
 }

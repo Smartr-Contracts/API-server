@@ -15,11 +15,6 @@ func main() {
 	r.Use(middleware.CorsMiddleware())
     //r.Use(middleware.RequireAuth)
 
-    publicRoutes := r.Group("/public")
-    {
-    	publicRoutes.POST("/login", pkg.Login)
-    }
-
     protectedRoutes := r.Group("/protected")
     protectedRoutes.Use(middleware.RequireAuth())
     {
